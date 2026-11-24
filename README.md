@@ -8,12 +8,14 @@ Fraud Detection System is a complete fraud detection and investigation system th
 
 **Workflow:** Transaction Generation → Feature Engineering → Anomaly Detection → Risk Scoring → Alert Generation → Investigation Report → Dashboard Visualization
 
+> **Dashboard status:** The Next.js dashboard is **not included in this repository yet**. The `dashboard/` entry is an empty submodule link with no files. You can run the FastAPI backend and the ML pipeline from this repo; the frontend setup, demo, and Vercel steps below apply once the dashboard code is published here.
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
 | --- | --- |
 | **Backend** | FastAPI, Python 3.10+, Uvicorn |
-| **Frontend** | Next.js 14, TypeScript, Tailwind CSS, Lucide Icons |
+| **Frontend** | Next.js 14, TypeScript, Tailwind CSS, Lucide Icons *(not yet published in this repo)* |
 | **ML Model** | Isolation Forest (Scikit-learn) + Rule-based hybrid |
 | **AI/LLM** | Ollama — Llama 3.2 (for investigation report generation) |
 | **Data** | Pandas, NumPy, SHAP, Matplotlib, Faker |
@@ -25,7 +27,7 @@ Fraud Detection System is a complete fraud detection and investigation system th
 - Real-time transaction scoring (0–100 risk score per transaction)
 - ML anomaly detection — Isolation Forest + Rule-based hybrid algorithm
 - LLM-generated risk reports — What happened / Why risky / Recommended action
-- Interactive Admin Dashboard built with Next.js
+- Interactive Admin Dashboard built with Next.js *(not yet published in this repo)*
 - Alert Review/Dismiss workflow for full alert management
 - SHAP explainability for feature importance analysis
 - Live feed simulation for real-time transaction monitoring
@@ -37,8 +39,8 @@ Fraud Detection System is a complete fraud detection and investigation system th
 | Tool | Version |
 | --- | --- |
 | Python | 3.10+ |
-| Node.js | 18+ |
-| npm | Latest |
+| Node.js | 18+ (dashboard only) |
+| npm | Latest (dashboard only) |
 | Git | Latest |
 
 ### Step 1: Clone Repository
@@ -65,7 +67,9 @@ ollama pull llama3.2
 ollama run llama3.2
 ```
 
-### Step 4: Frontend Setup
+### Step 4: Frontend Setup *(once the dashboard code is published)*
+
+The `dashboard/` folder is currently empty in this repo, so these commands will not work yet:
 
 ```bash
 cd dashboard
@@ -75,7 +79,7 @@ npm run dev
 
 Now open:
 
-- **Frontend:** http://localhost:3000
+- **Frontend:** http://localhost:3000 *(once the dashboard is published)*
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 
@@ -84,7 +88,7 @@ Now open:
 ```
 fraud-detection/
 │
-├── dashboard/                         # Frontend (Next.js)
+├── dashboard/                         # Frontend (Next.js) — not yet published (empty)
 │
 ├── data/
 │   ├── processed/                     # Evaluation artifacts
@@ -123,7 +127,7 @@ fraud-detection/
 
 | Folder | Purpose |
 | --- | --- |
-| `dashboard/` | Next.js frontend — all UI code |
+| `dashboard/` | Next.js frontend — not yet published; currently an empty submodule link with no files |
 | `data/processed/` | Evaluation outputs (charts, scored data, alerts) |
 | `models/` | Trained ML model artifact |
 | `notebooks/` | Jupyter notebook for exploration |
@@ -132,55 +136,83 @@ fraud-detection/
 
 ## 📡 API Endpoints
 
-### 1. `POST /api/analyze-transactions`
+With the backend running, interactive API docs are available at http://localhost:8000/docs.
 
-Scores all transactions and generates investigation reports.
+### 1. `POST /score`
 
-**Response:**
+Scores a single transaction with the Isolation Forest model, explains the score with SHAP, and builds an investigation report. If the transaction is suspicious (`risk_score >= 60`), an alert is created automatically.
+
+**Request body:**
 
 ```json
 {
-  "transactions": [
-    {
-      "id": "TXN_001",
-      "customer_name": "Rafiq Hassan",
-      "amount": 25000,
-      "type": "transfer",
-      "location": "Dhaka",
-      "risk_score": 72.5,
-      "risk_level": "High",
-      "reasons": [
-        "Amount 12x higher than average",
-        "Transaction at 2:30 AM",
-        "New recipient added today"
-      ],
-      "investigation_report": {
-        "what_happened": "A transfer of BDT 25,000 was initiated to a new recipient at 2:30 AM from Dhaka.",
-        "why_risky": "Amount significantly higher than normal. Time is outside regular activity hours. Recipient has no transaction history.",
-        "recommended_action": "Temporarily block the transaction. Contact the customer via phone. If unresponsive, escalate for manual review."
-      }
-    }
+  "transaction_id": "TXN_001",
+  "user_id": "U_1023",
+  "amount": 25000,
+  "timestamp": "2026-10-03T02:30:00",
+  "location": "Dhaka",
+  "device": "android",
+  "txn_type": "send_money",
+  "recipient_new": 1
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `transaction_id` | string | Transaction identifier |
+| `user_id` | string | Customer identifier |
+| `amount` | number | Transaction amount |
+| `timestamp` | string | ISO 8601 date-time; its hour is used as a feature |
+| `location` | string | City, e.g. `Dhaka`, `Chittagong`, `Sylhet` |
+| `device` | string | Device type, e.g. `android`, `ios`, `web` |
+| `txn_type` | string | e.g. `send_money`, `mobile_recharge`, `bill_pay`, `cash_out`, `merchant_pay` |
+| `recipient_new` | integer | `1` if the recipient is new, otherwise `0` (default `0`) |
+
+**Response** (values are illustrative):
+
+```json
+{
+  "transaction_id": "TXN_001",
+  "risk_score": 72.5,
+  "is_suspicious": true,
+  "top_features": [
+    { "feature": "is_night", "value": -0.4123 },
+    { "feature": "log_amount", "value": -0.2871 },
+    { "feature": "recipient_new", "value": -0.1534 },
+    { "feature": "hour", "value": -0.0912 },
+    { "feature": "is_off_hours", "value": -0.0458 }
   ],
-  "summary": {
-    "total": 20,
-    "high_risk": 3,
-    "medium_risk": 4,
-    "low_risk": 13
+  "report": {
+    "what_happened": "User U_1023 made a $25000.00 send_money from Dhaka using android at 2026-10-03T02:30:00.",
+    "why_is_risky": "Risk score 72.5/100. Key risk factors: is_night, log_amount, recipient_new.",
+    "next_actions": "1. Review transaction. 2. Contact customer. 3. Block if suspicious."
   }
 }
 ```
 
+- `risk_score`: 0–100, computed from the Isolation Forest anomaly score (higher means more anomalous).
+- `is_suspicious`: `true` when `risk_score >= 60`.
+- `top_features`: the 5 features with the largest absolute SHAP values for this transaction.
+- `report`: what happened, why it is risky, and recommended next actions.
+- Errors: returns `500` with an error message if scoring fails (for example, an invalid `timestamp`).
+
 ### 2. `GET /alerts`
 
-Returns a list of all generated alerts (automatically created from high-risk transactions).
+Returns all alerts, newest first. Alerts are created automatically by `POST /score` for suspicious transactions. Use the optional `status` query parameter to filter by `flagged`, `reviewed`, or `dismissed`, for example `GET /alerts?status=flagged`.
 
-### 3. `POST /alerts/{id}/review`
+Each alert contains `alert_id`, `transaction_id`, `user_id`, `amount`, `risk_score`, `status`, `top_features`, `report`, `created_at`, and `updated_at`.
 
-Marks a specific alert as reviewed.
+### 3. `POST /alerts/{alert_id}/review`
 
-### 4. `POST /alerts/{id}/dismiss`
+Marks an alert as `reviewed`. Returns `404` if the alert does not exist.
 
-Dismisses a specific alert.
+### 4. `POST /alerts/{alert_id}/dismiss`
+
+Marks an alert as `dismissed`. Returns `404` if the alert does not exist.
+
+### 5. `GET /`
+
+Health check. Returns `{"message": "Fraud Detection API is running"}`.
 
 ## 🧠 Detection Approach
 
@@ -206,6 +238,8 @@ Risk Score = (Anomaly Score × 0.6) + (Rule Score × 0.4)
 
 ## 🎮 Demo Instructions
 
+> These steps require the dashboard, which is not yet published in this repo. To try the backend on its own, start it (Step 2) and send a request to `POST /score` from the API docs at http://localhost:8000/docs.
+
 1. Open http://localhost:3000
 2. Click **Run Demo Scenario**
 3. Watch transactions appear gradually (Low → Medium → High risk)
@@ -228,7 +262,7 @@ Risk Score = (Anomaly Score × 0.6) + (Rule Score × 0.4)
 - **Build:** `pip install -r requirements.txt`
 - **Start:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-### Frontend → Vercel
+### Frontend → Vercel *(once the dashboard code is published)*
 
 - **Root:** `dashboard`
 - **Framework:** Next.js

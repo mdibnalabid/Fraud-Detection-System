@@ -7,3 +7,6 @@ shap
 joblib
 faker
 jupyter
+fastapi
+uvicorn
+pydantic>=2
