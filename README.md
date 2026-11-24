@@ -46,7 +46,7 @@ Fraud Detection System is a complete fraud detection and investigation system th
 ### Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/md-ibna-labid/fraud-detection-system.git
+git clone https://github.com/mdibnalabid/fraud-detection-system.git
 cd fraud-detection-system
 cd fraud-detection
 ```
